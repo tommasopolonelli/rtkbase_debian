@@ -144,11 +144,12 @@ fi
 
 rm -rf /etc/apt/sources.list.d/multistrap-debian.list
 
-cp /tmp/install/public-key.asc /etc/apt/trusted.gpg.d/sophgo-myho-st.asc
+#apt-key add /tmp/install/public-key.asc
+cp /tmp/install/public-key.asc /etc/apt/trusted.gpg.d/sophgo-myho-st.gpg
 
 cat > /etc/apt/sources.list <<EOF
 deb http://deb.debian.org/debian sid main non-free-firmware
-deb https://sophgo.my-ho.st/ debian sophgo
+deb https://sophgo.my-ho.st:8443/ debian sophgo
 EOF
 
 echo "/boot/uboot.env	0x0000          0x20000" > /etc/fw_env.config
