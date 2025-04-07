@@ -126,7 +126,9 @@ Patches for the kernel, opensbi, u-boot or fsbl can be placed in configs/common/
 
 To assist with developing the image, you can get a shell in the docker container by running:
 ```
-docker run --privileged -it --rm -v ./configs/:/configs -v ./image:/output -v ./scripts/:/builder builder /bin/bash
+sudo ./build_docker.sh
+sudo docker run --privileged --rm tonistiigi/binfmt --install all
+sudo docker run --privileged -it --rm -v ./configs/:/configs -v ./image:/output -v ./scripts/:/builder builder /bin/bash
 ```
 inside the container, packages are build in the /builder/ directory, and the rootfs is placed at /rootfs/ directory
 
