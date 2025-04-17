@@ -87,7 +87,7 @@ The images, by default, do not allocate any memory for the ION heap, as they are
 The images also include the remoteproc and mailbox drivers so you can load up ardunio/freertos images on the small C906 core. 
 
 ### Additional Packages
-This image also adds the debian repository for https://github.com/Fishwaldo/sophgo-sg200x-packages so you can install additional repositories. The debian repository is hosted at 
+This image can add the debian repository for https://github.com/Fishwaldo/sophgo-sg200x-packages so you can install additional repositories. The debian repository is hosted at 
 https://sophgo.my-ho.st:8443/ which pulls down the compiled debian packages from the above github repository occasionally.
 
 
@@ -131,6 +131,9 @@ sudo docker run --privileged --rm tonistiigi/binfmt --install all
 sudo docker run --privileged -it --rm -v ./configs/:/configs -v ./image:/output -v ./scripts/:/builder builder /bin/bash
 ```
 inside the container, packages are build in the /builder/ directory, and the rootfs is placed at /rootfs/ directory
+```
+make BOARD=duos image
+```
 
 # TODO
 - DeviceTree Overlay Support
