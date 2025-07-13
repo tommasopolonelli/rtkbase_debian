@@ -128,11 +128,21 @@ To assist with developing the image, you can get a shell in the docker container
 ```
 sudo ./build_docker.sh
 sudo docker run --privileged --rm tonistiigi/binfmt --install all
-sudo docker run --privileged -it --rm -v ./configs/:/configs -v ./image:/output -v ./scripts/:/builder builder /bin/bash
+sudo docker run --privileged -it --rm -v ./configs/:/configs -v ./image:/output -v ./scripts/:/builder -v builder /bin/bash
 ```
-inside the container, packages are build in the /builder/ directory, and the rootfs is placed at /rootfs/ directory
+or 
+```
+sudo docker run --privileged -it --rm -v ./configs/:/configs -v ./image:/output -v ./scripts/:/builder -v ./keydir/:/keydir builder /bin/bash
+```
+to enable secure boot.
+
+Inside the container, packages are build in the /builder/ directory, and the rootfs is placed at /rootfs/ directory
 ```
 make BOARD=duos image
+```
+or to sign the bootloader
+```
+make BOARD=duos SIGN_FIP=1 image
 ```
 
 # TODO

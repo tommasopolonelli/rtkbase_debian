@@ -8,9 +8,29 @@ blue:=$(shell tput setaf 4)
 reset:=$(shell tput sgr0)
 
 BUILDDIR := /build/
+KEYDIR := /keydir/
+RSA_HASH0_KEY := rsa_hash0.pem
+BL_PRIV_KEY := bl_priv.pem
 
 ifndef BOARD
 $(error $(red)BOARD is not set$(reset))
+endif
+
+ifdef SIGN_FIP
+RSA_HASH0_PATH := $(KEYDIR)$(RSA_HASH0_KEY)
+BL_PRIV_PATH   := $(KEYDIR)$(BL_PRIV_KEY)
+#Check that the key directory exists
+ifeq ("$(wildcard $(KEYDIR))","")
+$(error $(red)Key directory '$(KEYDIR)' not found $(reset))
+endif
+#Check for rsa_hash0.pem
+ifeq ("$(wildcard $(RSA_HASH0_PATH))","")
+$(error $(red)Missing RSA private key: '$(RSA_HASH0_PATH)' $(reset))
+endif
+#Check for bl_priv.pem
+ifeq ("$(wildcard $(BL_PRIV_PATH))","")
+$(error $(red)Missing BL private key: '$(BL_PRIV_PATH)' $(reset))
+endif
 endif
 
 include /configs/settings.mk
@@ -31,6 +51,11 @@ $(info $(blue)Board: $(BOARD)$(reset))
 $(info $(blue)Storage: $(STORAGE_TYPE)$(reset))
 $(info $(blue)Image Addons: $(IMAGE_ADDITIONS)$(reset))
 $(info $(blue)Packages: $(_PACKAGES)$(reset))
+ifdef SIGN_FIP
+$(info $(blue)Secure-boot ENABLED $(reset))
+else
+$(info $(blue)Secure-boot DISABLED $(reset))
+endif
 
 NPROCS := $(shell nproc)
 
@@ -170,6 +195,29 @@ $(BUILDDIR)/fsbl-compile-stamp: $(BUILDDIR)/fsbl-prepare-patch-stamp $(BUILDDIR)
 	@cp $(BUILDDIR)/fsbl/build/$(CHIP)/fip.bin $(BUILDDIR)
 	@touch $@
 
+$(BUILDDIR)/fsbl-compile-stamp: $(BUILDDIR)/fsbl-prepare-patch-stamp $(BUILDDIR)/opensbi-compile-stamp $(BUILDDIR)/uboot-compile-stamp
+	@echo "$(COLOUR_GREEN)Building FSBL for $(BOARD)$(END_COLOUR)"
+	@cd $(BUILDDIR)/fsbl && OD_CLK_SEL=y $(MAKE) -j$(NPROCS) ARCH=$(ARCH) CHIP_ARCH=$(CHIP) BOOT_CPU=$(BOOT_CPU) DDR_CFG=$(DDR_CFG) RTOS_ENABLE_FREERTOS=y BLCP_2ND_PATH=$(BUILDDIR)/fsbl/blank.bin LOADER_2ND_PATH=$(BUILDDIR)/u-boot.bin \
+	CROSS_COMPILE=/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-
+
+	@if [ -n "$(SIGN_FIP)" ]; then \
+	    echo "$(blue)SIGN_FIP set; signing fip.bin...$(reset)"; \
+	    python3 $(BUILDDIR)/fsbl/plat/cv181x/fipsign.py sign \
+	        --root-priv=$(KEYDIR)/$(RSA_HASH0_KEY) \
+	        --bl-priv=$(KEYDIR)/$(BL_PRIV_KEY) \
+	        $(BUILDDIR)/fsbl/build/$(CHIP)/fip.bin \
+	        $(BUILDDIR)/fsbl/build/$(CHIP)/fip_signed.bin 2>&1 | \
+	      	grep 'KPUB_HASH:' | \
+	      	sed -n 's/.*\(KPUB_HASH:[0-9a-f]\+\).*/\1/p' \
+	      	> $(KEYDIR)/KPUB_HASH.txt; \
+	    mv $(BUILDDIR)/fsbl/build/$(CHIP)/fip_signed.bin \
+	       $(BUILDDIR)/fsbl/build/$(CHIP)/fip.bin; \
+	fi
+
+	@cp $(BUILDDIR)/fsbl/build/$(CHIP)/fip.bin $(BUILDDIR)
+	@touch $@
+
+
 $(BUILDDIR)/fsbl-package-stamp: $(BUILDDIR)/fsbl-compile-stamp
 	@echo "$(COLOUR_GREEN)Packaging FSBL for $(BOARD)$(END_COLOUR)"
 	@mkdir -p $(BUILDDIR)/package/cvitek-fsbl-$(BOARD)-$(FSBLVERSION)
@@ -220,6 +268,11 @@ $(BUILDDIR)/image-customize-stamp: $(BUILDDIR)/image-addons-stamp $(BUILDDIR)/li
 	@cp -v /builder/setup_rootfs.sh /rootfs/tmp/install/
 	@cp -v $(BUILDDIR)/public-key.asc /rootfs/tmp/install/
 	@chroot /rootfs/ /tmp/install/qemu-riscv64-static /bin/sh /tmp/install/setup_rootfs.sh
+	@if [ -n "$(RTKBASE)" ]; then \
+	    echo "$(blue)Install RTKBASE$(reset)"; \
+		cp -v /builder/setup_rtkbase.sh /rootfs/tmp/install/; \
+		chroot /rootfs/ /tmp/install/qemu-riscv64-static /bin/sh /tmp/install/setup_rtkbase.sh; \
+	fi
 	@rm -rf /rootfs/tmp/install/
 	@umount /rootfs/proc || true 
 	@umount /rootfs/sys || true 
