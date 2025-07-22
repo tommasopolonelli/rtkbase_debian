@@ -128,7 +128,7 @@ To assist with developing the image, you can get a shell in the docker container
 ```
 sudo ./build_docker.sh
 sudo docker run --privileged --rm tonistiigi/binfmt --install all
-sudo docker run --privileged -it --rm -v ./configs/:/configs -v ./image:/output -v ./scripts/:/builder -v builder /bin/bash
+sudo docker run --privileged -it --rm -v ./configs/:/configs -v ./image:/output -v ./scripts/:/builder builder /bin/bash
 ```
 or 
 ```

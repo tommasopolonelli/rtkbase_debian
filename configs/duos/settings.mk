@@ -7,7 +7,7 @@ ARCH=riscv
 DDR_CFG=ddr3_1866_x16
 PARTITION_FILE=partition_$(STORAGE_TYPE).xml
 
-PACKAGES += "wireless-regdb wpasupplicant cvi-pinmux-cv181x bluez git zip unzip curl musl-tools"
+PACKAGES += "wireless-regdb wpasupplicant cvi-pinmux-cv181x bluez git zip unzip curl musl-tools keyutils"
 
 IMAGE_ADDITIONS += "aic8800-firmware"
 IMAGE_ADDITIONS += "ethernet-leds"
