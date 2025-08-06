@@ -18,7 +18,7 @@ RUN apt-get update \
         python3-setuptools  swig gnupg \
         systemd-container texinfo zlib1g-dev wget arch-test \
         linux-image-generic genimage joe mc zip \
-        fakeroot git kernel-wedge quilt ccache flex bison \
+        fakeroot kernel-wedge quilt ccache flex bison \
         libssl-dev dh-exec rsync libelf-dev bc gcc-riscv64-unknown-elf \
     && pip3 install --no-cache-dir --break-system-packages pycryptodome \
     && git clone --depth 1 https://github.com/milkv-duo/host-tools.git /host-tools \
