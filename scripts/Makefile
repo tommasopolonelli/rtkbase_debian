@@ -71,30 +71,37 @@ $(BUILDDIR)/linux-prepare-patch-stamp: $(BUILDDIR)/linux-prepare-checkout-stamp
 	@echo "$(COLOUR_GREEN)Patching Kernel for $(BOARD)$(END_COLOUR)"
 	@$(foreach file, $(wildcard /configs/common/patches/linux/*.patch), cd $(BUILDDIR)/kernel && git apply --ignore-whitespace $(file);)
 	@$(foreach file, $(wildcard /configs/$(BOARD)/patches/linux/*.patch), cd $(BUILDDIR)/kernel && git apply --ignore-whitespace $(file);)
-	@cp /configs/$(BOARD)/linux/defconfig $(BUILDDIR)/kernel/arch/riscv/configs/${BOARD}_defconfig
+	@if [ -n "$(IMA)" ]; then \
+		cp /configs/$(BOARD)/linux/defconfig_ima $(BUILDDIR)/kernel/arch/riscv/configs/${BOARD}_defconfig; \
+	else \
+		cp /configs/$(BOARD)/linux/defconfig $(BUILDDIR)/kernel/arch/riscv/configs/${BOARD}_defconfig; \
+	fi
 	@$(foreach file, $(wildcard /configs/common/dts/$(CHIP)/*), cp $(file) $(BUILDDIR)/kernel/arch/riscv/boot/dts/cvitek/;)
 	@$(foreach file, $(wildcard /configs/common/dts/$(CHIP)_$(ARCH)/*), cp $(file) $(BUILDDIR)/kernel/arch/riscv/boot/dts/cvitek/;)
 	@$(foreach file, $(wildcard /configs/$(BOARD)/dts/*), cp $(file) $(BUILDDIR)/kernel/arch/riscv/boot/dts/cvitek/;)
 	@python3 /builder/python/mmap_conv.py --type h /configs/$(BOARD)/memmap.py $(BUILDDIR)/kernel/arch/riscv/boot/dts/cvitek/cvi_board_memmap.h
+
 	@touch $@
 
 $(BUILDDIR)/linux-prepare-configure-stamp: $(BUILDDIR)/linux-prepare-patch-stamp
 	@echo "$(COLOUR_GREEN)Configuring Kernel for $(BOARD)$(END_COLOUR)"
-	@echo ">>> Generating IMA/EVM kernel config fragment"    
-#	@cp /builder/addons/ima-policy-install/ima.config $(IMA_BUILD_CFG)
-	@cd $(BUILDDIR)/kernel KDEB_SOURCENAME=linux-sophgo  && $(MAKE) -j$(NPROCS) O=$(BUILDDIR)/kernel/ ARCH=riscv CROSS_COMPILE="/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-" ${BOARD}_defconfig
-#	@$(BUILDDIR)/kernel/scripts/config --file .config --enable INTEGRITY
-#	@$(BUILDDIR)/kernel/scripts/config --file .config --enable IMA
-#	@grep -E "^CONFIG_IMA|CONFIG_INTEGRITY|CONFIG_EVM|CONFIG_SECURITYFS" $(BUILDDIR)/kernel/.config
-#	@cd $(BUILDDIR)/kernel && scripts/kconfig/merge_config.sh -m .config $(IMA_BUILD_CFG) && 
-#	@cd $(BUILDDIR)/kernel && $(MAKE) ARCH=riscv O=$(BUILDDIR)/kernel CROSS_COMPILE="/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-" olddefconfig
+
+	@if [ -n "$(IMA)" ]; then \
+		echo "$(COLOUR_GREEN)>>> Staging IMA key in certs...$(END_COLOUR)"; \
+		cp /keydir/ima_local_ca.pem $(BUILDDIR)/kernel/certs/ima_local_ca.pem; \
+		cp /keydir/ima.der $(BUILDDIR)/kernel/certs/ima.der; \
+		tee -a $(BUILDDIR)/kernel/certs/Makefile < /configs/ima_appraisal/makefile_certs > /dev/null; \
+		echo "$(COLOUR_GREEN)>>> Generating IMA/EVM kernel config fragment$(END_COLOUR)"; \
+		/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-objcopy -I binary -O elf64-littleriscv -B riscv $(BUILDDIR)/kernel/certs/ima.der $(BUILDDIR)/kernel/certs/ima_der.o; \
+		cd $(BUILDDIR)/kernel KDEB_SOURCENAME=linux-sophgo  && $(MAKE) -j$(NPROCS) O=$(BUILDDIR)/kernel/ ARCH=riscv CROSS_COMPILE="/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-" ${BOARD}_defconfig; \
+		grep -E "^CONFIG_IMA|CONFIG_INTEGRITY|CONFIG_EVM|CONFIG_SECURITYFS|CONFIG_SYSTEM|CONFIG_X509" $(BUILDDIR)/kernel/.config; \
+	else \
+		echo "IMA not enabled: skipping IMA/EVM configuration"; \
+		cd $(BUILDDIR)/kernel KDEB_SOURCENAME=linux-sophgo && $(MAKE) -j$(NPROCS) O=$(BUILDDIR)/kernel/ ARCH=riscv CROSS_COMPILE="/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-" ${BOARD}_defconfig; \
+	fi
+
 	@$(eval LV=$(shell cd $(BUILDDIR)/kernel && git log -1 --format="%at" | xargs -I{} date -d @{} +-%Y%m%d-${KERNELREV}))
 	@sed -i 's/CONFIG_LOCALVERSION=""/CONFIG_LOCALVERSION="$(LV)"/' $(BUILDDIR)/kernel/.config
-	@grep -E "^CONFIG_IMA|CONFIG_INTEGRITY|CONFIG_EVM|CONFIG_SECURITYFS|CONFIG_SYSTEM|CONFIG_X509" $(BUILDDIR)/kernel/.config	
-	@echo ">>> Staging IMA policy & key..."
-	@cp /keydir/ima_cert.pem $(BUILDDIR)/kernel/certs/ima_cert.pem
-	@cp /keydir/ima.der $(BUILDDIR)/kernel/certs/ima.der
-	@grep -q "obj-$(CONFIG_IMA_LOAD_X509) += ima_der.o" $(BUILDDIR)/kernel/certs/Makefile || echo "obj-$(CONFIG_IMA_LOAD_X509) += ima_der.o" >> $(BUILDDIR)/kernel/certs/Makefile
 	@touch $@
 
 $(BUILDDIR)/linux-compile-stamp: $(BUILDDIR)/linux-prepare-configure-stamp
@@ -249,33 +256,18 @@ fsbl-clean:
 	@rm -f $(BUILDDIR)/fsbl-*-stamp
 
 $(BUILDDIR)/install_ima_files:
-	@echo ">>> Staging IMA policy & key..."
-#	@mkdir -p /rootfs/certs
-#	@cp /keydir/ima_pub.der /rootfs/certs/ima_pub.der
-	@mkdir -p /rootfs/etc/ima /rootfs/etc/keys
-#	@cp addons/ima-policy-install/ima-policy /rootfs/etc/ima/ima-policy
-#	@cp addons/ima-policy-install/ima_pub.pem /rootfs/etc/keys/ima_pub.pem
-	@cp /keydir/ima_cert.pem /rootfs/etc/keys/ima_cert.pem
-	@cp /keydir/ima.der /rootfs/etc/keys/ima.der
-
-$(BUILDDIR)/install_ima_hooks: $(BUILDDIR)/install_ima_files
-	@echo ">>> Installing IMA initramfs hooks..."
-#	@mkdir -p /rootfs/usr/share/initramfs-tools/hooks \
-	    /rootfs/usr/share/initramfs-tools/scripts/local-top
-#	@cp initramfs-hooks/hooks.d/ima \
-	    /rootfs/usr/share/initramfs-tools/hooks/ima
-#	@cp initramfs-hooks/scripts.d/ima \
-	    /rootfs/usr/share/initramfs-tools/scripts/local-top/ima
-#	@chmod +x /rootfs/usr/share/initramfs-tools/hooks/ima
-#	@chmod +x /rootfs/usr/share/initramfs-tools/scripts/local-top/ima
-
-
-$(BUILDDIR)/rebuild_initramfs: $(BUILDDIR)/install_ima_hooks
-	@echo ">>> Ensuring initramfs-tools present..."
-#	@chroot /rootfs/ apt-get update
-#	@chroot /rootfs/ apt-get install -y initramfs-tools
-#	@echo ">>> Rebuilding initramfs with IMA/EVM support..."
-#	@chroot /rootfs/ update-initramfs -u -k all
+	@if [ -n "$(IMA)" ]; then \
+		echo "$(COLOUR_GREEN)>>> Staging IMA policy & key...$(BOARD)$(END_COLOUR)"; \
+		mkdir -p /rootfs/etc/ima /rootfs/etc/keys; \
+		cp /keydir/ima.der /rootfs/etc/keys/ima.der; \
+	fi
+# for debug only
+	@mkdir -p /rootfs/utils
+	@cp /keydir/ima.der /rootfs/utils/ima.der
+	@cp /keydir/privkey_ima.pem /rootfs/utils/privkey_ima.pem
+	@cp /keydir/ima_local_ca.priv /rootfs/utils/ima_local_ca.priv
+	@cp /configs/ima_appraisal/ima-policy /rootfs/utils/ima-policy
+	@touch $@
 
 $(BUILDDIR)/image-prepare-stamp: 
 	@echo "$(COLOUR_GREEN)Preparing Image for $(BOARD)$(END_COLOUR)"
@@ -296,7 +288,7 @@ $(BUILDDIR)/image-addons-stamp: $(BUILDDIR)/image-prepare-stamp $(BUILDDIR)/fsbl
 	@touch $@
 
 
-$(BUILDDIR)/image-customize-stamp: $(BUILDDIR)/image-addons-stamp $(BUILDDIR)/linux-compile-stamp $(BUILDDIR)/fsbl-package-stamp $(BUILDDIR)/rebuild_initramfs
+$(BUILDDIR)/image-customize-stamp: $(BUILDDIR)/image-addons-stamp $(BUILDDIR)/linux-compile-stamp $(BUILDDIR)/fsbl-package-stamp $(BUILDDIR)/install_ima_files
 	@echo "$(COLOUR_GREEN)Customizing Image for $(BOARD)$(END_COLOUR)"
 	@mkdir -p /rootfs/tmp/install/
 	@echo $(BOARD) > /rootfs/tmp/install/hostname

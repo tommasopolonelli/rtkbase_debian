@@ -1,0 +1,8 @@
+
+# Embed the signed certificate
+obj-$(CONFIG_IMA_LOAD_X509) += ima_der.o
+
+$(obj)/ima_der.o: $(src)/ima.der
+	$(call objcopy, \
+		$(src)/ima.der, $(obj)/ima_der.o, \
+		-I binary -O elf64-littleriscv -B riscv)
