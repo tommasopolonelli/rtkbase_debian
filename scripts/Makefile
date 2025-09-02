@@ -33,6 +33,18 @@ $(error $(red)Missing BL private key: '$(BL_PRIV_PATH)' $(reset))
 endif
 endif
 
+ifdef IMA
+IMA_PUB_PATH   := $(KEYDIR)/ima.der
+#Check that the key directory exists
+ifeq ("$(wildcard $(KEYDIR))","")
+$(error $(red)Key directory '$(KEYDIR)' not found $(reset))
+endif
+#Check for ima.der
+ifeq ("$(wildcard $(IMA_PUB_PATH))","")
+$(error $(red)Missing IMA public key: '$(IMA_PUB_PATH)' $(reset))
+endif
+endif
+
 include /configs/settings.mk
 
 ifneq ("$(wildcard /configs/$(BOARD)/settings.mk)","")
@@ -56,6 +68,11 @@ $(info $(blue)Secure-boot ENABLED $(reset))
 else
 $(info $(blue)Secure-boot DISABLED $(reset))
 endif
+ifdef IMA
+$(info $(blue)IMA appraisal ENABLED $(reset))
+else
+$(info $(blue)IMA appraisal DISABLED $(reset))
+endif
 
 NPROCS := $(shell nproc)
 
@@ -63,7 +80,7 @@ NPROCS := $(shell nproc)
 $(BUILDDIR)/linux-prepare-checkout-stamp:
 	@echo "$(COLOUR_GREEN)Checking out Kernel for $(BOARD)$(END_COLOUR)"
 	@mkdir -p $(BUILDDIR)
-	@git clone -b sg200x-dev --depth 15 https://github.com/sophgo/linux_5.10.git /build/kernel
+	@git clone -b sg200x-dev --depth 17 https://github.com/sophgo/linux_5.10.git /build/kernel
 	@cd $(BUILDDIR)/kernel && git checkout e6ead53
 	@touch $@
 
@@ -123,8 +140,8 @@ linux-clean:
 $(BUILDDIR)/uboot-prepare-checkout-stamp:
 	@echo "$(COLOUR_GREEN)Checking out U-Boot for $(BOARD)$(END_COLOUR)"
 	@mkdir -p $(BUILDDIR)
-	@git clone --depth 15 https://github.com/sophgo/u-boot-2021.10.git $(BUILDDIR)/u-boot
-	@cd $(BUILDDIR)/u-boot && git checkout 4a21b6b
+	@git clone --depth 5 https://github.com/sophgo/u-boot-2021.10.git $(BUILDDIR)/u-boot
+	@cd $(BUILDDIR)/u-boot && git checkout 050d49a
 	@touch $@
 
 $(BUILDDIR)/uboot-prepare-patch-stamp: $(BUILDDIR)/uboot-prepare-checkout-stamp
@@ -193,8 +210,8 @@ opensbi-clean:
 $(BUILDDIR)/fsbl-prepare-checkout-stamp:
 	@echo "$(COLOUR_GREEN)Checking out FSBL for $(BOARD)$(END_COLOUR)"
 	@mkdir -p $(BUILDDIR)
-	@git clone -b sg200x-dev --depth 15 https://github.com/sophgo/fsbl.git $(BUILDDIR)/fsbl
-	@cd $(BUILDDIR)/fsbl && git checkout 7ed3e3e
+	@git clone -b sg200x-dev --depth 5 https://github.com/sophgo/fsbl.git $(BUILDDIR)/fsbl
+	@cd $(BUILDDIR)/fsbl && git checkout 92735b9
 	@touch $@
 
 $(BUILDDIR)/fsbl-prepare-patch-stamp: $(BUILDDIR)/fsbl-prepare-checkout-stamp
@@ -260,13 +277,11 @@ $(BUILDDIR)/install_ima_files:
 		echo "$(COLOUR_GREEN)>>> Staging IMA policy & key...$(BOARD)$(END_COLOUR)"; \
 		mkdir -p /rootfs/etc/ima /rootfs/etc/keys; \
 		cp /keydir/ima.der /rootfs/etc/keys/ima.der; \
+		cp /configs/ima_appraisal/ima-policy /rootfs/etc/ima/ima-policy; \
+		echo "$(COLOUR_GREEN)--- IMA policy embedded into image -------------------$(END_COLOUR)"; \
+		cat /configs/ima_appraisal/ima-policy; \
+		echo "$(COLOUR_GREEN)------------------------------------------------------$(END_COLOUR)"; \
 	fi
-# for debug only
-	@mkdir -p /rootfs/utils
-	@cp /keydir/ima.der /rootfs/utils/ima.der
-	@cp /keydir/privkey_ima.pem /rootfs/utils/privkey_ima.pem
-	@cp /keydir/ima_local_ca.priv /rootfs/utils/ima_local_ca.priv
-	@cp /configs/ima_appraisal/ima-policy /rootfs/utils/ima-policy
 	@touch $@
 
 $(BUILDDIR)/image-prepare-stamp: 
