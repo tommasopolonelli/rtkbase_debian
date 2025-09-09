@@ -42,6 +42,8 @@ nmtui
 ### Ethernet
 For Boards with ethernet, they should automatically get a IP address if your network has a DHCP Server. You can configure the ethernet port in nmtui.
 
+How to set a persistent MAC address: https://community.milkv.io/t/ethernet-mac-address/1133/1
+
 ### Camera/ISP/Panel Support
 The images are based on the vendor 5.10 kernel, but exclude the following drivers:
 - mipi-rx/csi drivers
@@ -199,6 +201,8 @@ followed by the policy update command
 ```
 sudo cat /etc/ima/ima-policy | sudo tee /sys/kernel/security/ima/policy
 ```
+> [!CAUTION]
+> There is a classic failure mode when the kernel-side parser expects a newline-terminated string but receives a buffer without a terminating \n. Be sure the ima-policy file always terminates with a new-line.
 
 ## Flashing the Image
 
