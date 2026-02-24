@@ -80,7 +80,7 @@ NPROCS := $(shell nproc)
 $(BUILDDIR)/linux-prepare-checkout-stamp:
 	@echo "$(COLOUR_GREEN)Checking out Kernel for $(BOARD)$(END_COLOUR)"
 	@mkdir -p $(BUILDDIR)
-	@git clone -b sg200x-dev --depth 17 https://github.com/sophgo/linux_5.10.git /build/kernel
+	@git clone -b sg200x-dev --depth 30 https://github.com/sophgo/linux_5.10.git /build/kernel
 	@cd $(BUILDDIR)/kernel && git checkout e6ead53
 	@touch $@
 
@@ -140,8 +140,8 @@ linux-clean:
 $(BUILDDIR)/uboot-prepare-checkout-stamp:
 	@echo "$(COLOUR_GREEN)Checking out U-Boot for $(BOARD)$(END_COLOUR)"
 	@mkdir -p $(BUILDDIR)
-	@git clone --depth 5 https://github.com/sophgo/u-boot-2021.10.git $(BUILDDIR)/u-boot
-	@cd $(BUILDDIR)/u-boot && git checkout 050d49a
+	@git clone --depth 30 https://github.com/sophgo/u-boot-2021.10.git $(BUILDDIR)/u-boot
+	@cd $(BUILDDIR)/u-boot && git checkout 4a21b6b
 	@touch $@
 
 $(BUILDDIR)/uboot-prepare-patch-stamp: $(BUILDDIR)/uboot-prepare-checkout-stamp
@@ -210,8 +210,8 @@ opensbi-clean:
 $(BUILDDIR)/fsbl-prepare-checkout-stamp:
 	@echo "$(COLOUR_GREEN)Checking out FSBL for $(BOARD)$(END_COLOUR)"
 	@mkdir -p $(BUILDDIR)
-	@git clone -b sg200x-dev --depth 5 https://github.com/sophgo/fsbl.git $(BUILDDIR)/fsbl
-	@cd $(BUILDDIR)/fsbl && git checkout 92735b9
+	@git clone -b sg200x-dev --depth 30 https://github.com/sophgo/fsbl.git $(BUILDDIR)/fsbl
+	@cd $(BUILDDIR)/fsbl && git checkout 7ed3e3e
 	@touch $@
 
 $(BUILDDIR)/fsbl-prepare-patch-stamp: $(BUILDDIR)/fsbl-prepare-checkout-stamp
@@ -315,7 +315,7 @@ $(BUILDDIR)/image-customize-stamp: $(BUILDDIR)/image-addons-stamp $(BUILDDIR)/li
 	@chroot /rootfs/ /tmp/install/qemu-riscv64-static /bin/sh /tmp/install/setup_rootfs.sh
 	@if [ -n "$(RTKBASE)" ]; then \
 	    echo "$(blue)Install RTKBASE$(reset)"; \
-		cp -v /builder/setup_rtkbase.sh /rootfs/tmp/install/; \
+	    cp -v /builder/setup_rtkbase.sh /rootfs/tmp/install/; \
 		chroot /rootfs/ /tmp/install/qemu-riscv64-static /bin/sh /tmp/install/setup_rtkbase.sh; \
 	fi
 	@rm -rf /rootfs/tmp/install/

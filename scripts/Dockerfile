@@ -1,4 +1,4 @@
-FROM debian:sid as builder
+FROM debian:latest as builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -20,6 +20,7 @@ RUN apt-get update \
         linux-image-generic genimage joe mc zip \
         fakeroot kernel-wedge quilt ccache flex bison \
         libssl-dev dh-exec rsync libelf-dev bc gcc-riscv64-unknown-elf \
+        ima-evm-utils \
     && pip3 install --no-cache-dir --break-system-packages pycryptodome \
     && git clone --depth 1 https://github.com/milkv-duo/host-tools.git /host-tools \
     && rm -rf /host-tools/gcc/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-elf \
